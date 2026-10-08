@@ -1,0 +1,4 @@
+time="2026-10-08T06:12:00Z" level=info msg="listening on" endpoint="localhost:18550"
+time="2026-10-08T06:12:11Z" level=info msg="getHeader request" slot=10274304
+time="2026-10-08T06:13:59Z" level=warning msg="error calling getHeader on relay" url="https://relay.example" error="context deadline exceeded"
+time="2026-10-08T06:14:00Z" level=warning msg="no successful getHeader response from relays" slot=10274310

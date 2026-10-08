@@ -6,7 +6,7 @@ It reads the logs an operator already has — execution clients, consensus clien
 
 chainlog-ai does not restart a client, edit a manifest, scrape a cluster, or sign with a validator key.
 
-Work is tracked in [milestones](https://github.com/ehsanhajian/chainlog-ai/milestones). This tree is the 0.2.0 shell: `chainlog-ai --version` is the command that exists today.
+Work is tracked in [milestones](https://github.com/ehsanhajian/chainlog-ai/milestones). `ingest` writes a case on this machine. `why --case` accepts the id that `ingest` prints. Stating a cause comes later.
 
 ## Command
 
@@ -22,14 +22,17 @@ Work is tracked in [milestones](https://github.com/ehsanhajian/chainlog-ai/miles
 
 `why` can take a case id, or the same files as `ingest`. It classifies, builds the timeline, and states a cause.
 
+`examples/` is a short incident in this repository. The same flags take the operator's own files.
+
 ```bash
 chainlog-ai ingest \
-  --execution /var/log/geth/geth.log \
-  --consensus /var/log/lighthouse/beacon.log \
-  --validator /var/log/lighthouse/validator.log \
-  --builder /var/log/mev-boost.log \
-  --kube /tmp/events.json
+  --execution examples/geth.log \
+  --consensus examples/beacon.log \
+  --validator examples/validator.log \
+  --builder examples/mev-boost.log \
+  --kube examples/events.json
 
+chainlog-ai ingest --case 20261008T061200Z --execution examples/geth.log
 chainlog-ai why --case 20261008T061200Z
 chainlog-ai ask --case 20261008T061200Z "what happened in the slot before the miss?"
 chainlog-ai report --case 20261008T061200Z
@@ -90,6 +93,23 @@ pip install chainlog-ai
 The package is published from a GitHub release. Python 3.11 or newer. The command is `chainlog-ai`.
 
 ```bash
+chainlog-ai --version
+```
+
+## Development
+
+Python 3.11 or newer. From a checkout:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+That install includes pytest and puts `chainlog-ai` on the path from this tree.
+
+```bash
+pytest
 chainlog-ai --version
 ```
 
