@@ -30,4 +30,4 @@ jobs:
           pip install build
           python -m build
           pip install dist/*.whl
-          chainlog --version
+          chainlog-ai --version

@@ -1,6 +1,6 @@
 [project]
 name = "chainlog-ai"
-version = "0.1.0"
+version = "0.2.0"
 description = "Explain why blockchain infrastructure failed, from the logs you already have."
 readme = "README.md"
 license = "MIT"
@@ -32,12 +32,12 @@ dependencies = []
 dev = ["pytest>=8"]
 
 [project.urls]
-Repository = "https://github.com/ehsanhajian/chainlog"
-Issues = "https://github.com/ehsanhajian/chainlog/issues"
-Changelog = "https://github.com/ehsanhajian/chainlog/releases"
+Repository = "https://github.com/ehsanhajian/chainlog-ai"
+Issues = "https://github.com/ehsanhajian/chainlog-ai/issues"
+Changelog = "https://github.com/ehsanhajian/chainlog-ai/releases"
 
 [project.scripts]
-chainlog = "chainlog.cli:main"
+chainlog-ai = "chainlog_ai.cli:main"
 
 [build-system]
 requires = ["setuptools>=84.0.0"]
