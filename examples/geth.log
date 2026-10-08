@@ -1,0 +1,5 @@
+INFO [10-08|06:12:00.001] Imported new chain segment               number=21,234,560 hash=ab12..ef34 blocks=1 txs=120 mgas=14.2 elapsed=32.1ms
+INFO [10-08|06:12:12.004] Chain head updated                       number=21,234,561 hash=cd56..ab78
+WARN [10-08|06:13:40.221] Database compaction is slow              elapsed=8.4s
+ERROR [10-08|06:13:58.883] Failed to persist ancient block         err="leveldb: closed"
+ERROR [10-08|06:14:01.102] Engine API newPayload                    id=0x9f3a err="context deadline exceeded"
