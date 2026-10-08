@@ -1,0 +1,48 @@
+[project]
+name = "chainlog"
+version = "0.1.0"
+description = "Explain why blockchain infrastructure failed, from the logs you already have."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+keywords = [
+  "ethereum",
+  "geth",
+  "lighthouse",
+  "validator",
+  "kubernetes",
+  "incident",
+  "logs",
+]
+authors = [{ name = "ehsanhajian" }]
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Environment :: Console",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: System :: Systems Administration",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.urls]
+Repository = "https://github.com/ehsanhajian/chainlog"
+Issues = "https://github.com/ehsanhajian/chainlog/issues"
+
+[project.scripts]
+chainlog = "chainlog.cli:main"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
