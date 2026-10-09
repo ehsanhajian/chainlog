@@ -1,3 +1,4 @@
+Oct 08 06:12:00.050 INFO  Peer connected                          peer: 12D3KooWAbcdefghijkmnopqrstuvwxyz123456789
 Oct 08 06:12:00.102 INFO  Synced                                  slot: 10274304, epoch: 321072, peers: 82, finalized_epoch: 321070
 Oct 08 06:12:12.240 INFO  Attestation included                    slot: 10274304
 Oct 08 06:13:58.900 WARN  Error whilst processing payload         slot: 10274310, error: request to execution client timed out

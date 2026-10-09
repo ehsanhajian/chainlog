@@ -25,6 +25,18 @@
         "namespace": "ethereum",
         "name": "geth-0"
       }
+    },
+    {
+      "kind": "Event",
+      "reason": "Failed",
+      "message": "mount failed password=hunter2",
+      "type": "Warning",
+      "lastTimestamp": "2026-10-08T06:13:48Z",
+      "involvedObject": {
+        "kind": "Pod",
+        "namespace": "ethereum",
+        "name": "geth-0"
+      }
     }
   ]
 }
