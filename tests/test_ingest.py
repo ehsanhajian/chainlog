@@ -288,7 +288,7 @@ def test_example_logs_open_a_case(home: Path) -> None:
     assert "Unhealthy: Readiness probe failed: connection refused" in excerpts
     assert "hunter2" not in blob
     assert "abandon abandon" not in blob
-    assert "eyJhbGciOiJub25lIn0" not in blob
+    assert "eyJnot-a-jwt" not in blob
     assert "0x1111111111111111111111111111111111111111111111111111111111111111" not in blob
     assert "kkkkkkkkkkkkkkkkkkkkkkkk" not in blob
     assert any("[redacted]" in excerpt for excerpt in excerpts)

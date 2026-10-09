@@ -5,4 +5,4 @@ INFO [10-08|06:12:12.004] Chain head updated                       number=21,234
 WARN [10-08|06:13:40.221] Database compaction is slow              elapsed=8.4s
 ERROR [10-08|06:13:58.883] Failed to persist ancient block         err="leveldb: closed"
 ERROR [10-08|06:14:01.102] Engine API newPayload                    id=0x9f3a err="context deadline exceeded"
-WARN [10-08|06:14:01.200] Invalid JWT token                       auth="Bearer eyJhbGciOiJub25lIn0.eyJpYXQiOjE2OTY3MDAwMDB9.bm9uY2Utbm9uY2Utbm9uY2U"
+WARN [10-08|06:14:01.200] Invalid JWT token                       auth="Bearer eyJnot-a-jwt.payload-value.signature-value"
