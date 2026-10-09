@@ -33,6 +33,9 @@ class Event:
     byte_end: int
     excerpt: str
     time: str | None = None
+    slot: int | None = None
+    epoch: int | None = None
+    block: str | None = None
 
     def identity(self) -> tuple[str, str, int, int]:
         return (self.source, self.path, self.byte_start, self.byte_end)
@@ -45,6 +48,9 @@ class Event:
             "path": self.path,
             "byte_start": self.byte_start,
             "byte_end": self.byte_end,
+            "slot": self.slot,
+            "epoch": self.epoch,
+            "block": self.block,
             "excerpt": self.excerpt,
         }
 
@@ -57,6 +63,9 @@ class Event:
         source = data["source"]
         path = data["path"]
         excerpt = data["excerpt"]
+        slot = data.get("slot")
+        epoch = data.get("epoch")
+        block = data.get("block")
         if not isinstance(source, str) or not isinstance(path, str) or not isinstance(excerpt, str):
             raise TypeError("event fields must be strings")
         if client is not None and not isinstance(client, str):
@@ -67,6 +76,12 @@ class Event:
             raise TypeError("byte_start must be an integer")
         if isinstance(byte_end, bool) or not isinstance(byte_end, int):
             raise TypeError("byte_end must be an integer")
+        if isinstance(slot, bool) or (slot is not None and not isinstance(slot, int)):
+            raise TypeError("slot must be an integer or null")
+        if isinstance(epoch, bool) or (epoch is not None and not isinstance(epoch, int)):
+            raise TypeError("epoch must be an integer or null")
+        if block is not None and not isinstance(block, str):
+            raise TypeError("block must be a string or null")
         return cls(
             source=source,
             client=client,
@@ -75,6 +90,9 @@ class Event:
             byte_start=byte_start,
             byte_end=byte_end,
             excerpt=excerpt,
+            slot=slot,
+            epoch=epoch,
+            block=block,
         )
 
 

@@ -7,6 +7,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from chainlog_ai.case import Event, append_events, open_case, save_case, validate_case_id
+from chainlog_ai.consensus import (
+    consensus_fields,
+    detect_consensus_client,
+    normalize_consensus_client,
+    parse_consensus_time,
+)
 from chainlog_ai.execution import (
     detect_execution_client,
     normalize_execution_client,
@@ -47,12 +53,12 @@ def read_file(path: Path, source: str, client: str | None = None) -> list[Event]
     except OSError as exc:
         raise InputError(f"cannot read {path}: {exc.strerror}") from exc
     records = _records(data)
-    named = _execution_client(source, client, records)
+    named = _named_client(source, client, records)
     now = datetime.now(timezone.utc)
     stored_path = str(file_path.resolve())
     events: list[Event] = []
     for start, end, excerpt in records:
-        when = parse_execution_time(excerpt, now=now) if source == "execution" else None
+        when, slot, epoch, block = _line_fields(source, excerpt, now)
         events.append(
             Event(
                 source=source,
@@ -62,6 +68,9 @@ def read_file(path: Path, source: str, client: str | None = None) -> list[Event]
                 byte_end=end,
                 excerpt=redact_excerpt(excerpt),
                 time=when,
+                slot=slot,
+                epoch=epoch,
+                block=block,
             )
         )
     return events
@@ -73,16 +82,34 @@ def _input(item: tuple[str, ...]) -> tuple[str, str, str | None]:
     return source, raw_path, client if isinstance(client, str) else None
 
 
-def _execution_client(
+def _named_client(
     source: str,
     client: str | None,
     records: list[tuple[int, int, str]],
 ) -> str | None:
-    if source != "execution":
-        return None
-    if client is not None:
-        return normalize_execution_client(client)
-    return detect_execution_client("\n".join(excerpt for _, _, excerpt in records))
+    text = "\n".join(excerpt for _, _, excerpt in records)
+    if source == "execution":
+        if client is not None:
+            return normalize_execution_client(client)
+        return detect_execution_client(text)
+    if source == "consensus":
+        if client is not None:
+            return normalize_consensus_client(client)
+        return detect_consensus_client(text)
+    return None
+
+
+def _line_fields(
+    source: str,
+    excerpt: str,
+    now: datetime,
+) -> tuple[str | None, int | None, int | None, str | None]:
+    if source == "execution":
+        return parse_execution_time(excerpt, now=now), None, None, None
+    if source == "consensus":
+        slot, epoch, block = consensus_fields(excerpt)
+        return parse_consensus_time(excerpt, now=now), slot, epoch, block
+    return None, None, None, None
 
 
 def _records(data: bytes) -> list[tuple[int, int, str]]:
