@@ -1,3 +1,4 @@
+INFO [10-08|05:59:59.000] Starting Geth on Ethereum mainnet...
 INFO [10-08|06:00:00.010] Engine authentication                    secret=0xabababababababababababababababababababababababababababababababab
 ERROR [10-08|06:00:02.000] Refusing insecure key                   privatekey=0x1111111111111111111111111111111111111111111111111111111111111111
 INFO [10-08|06:12:00.001] Imported new chain segment               number=21,234,560 hash=ab12..ef34 blocks=1 txs=120 mgas=14.2 elapsed=32.1ms

@@ -32,6 +32,7 @@ class Event:
     byte_start: int
     byte_end: int
     excerpt: str
+    time: str | None = None
 
     def identity(self) -> tuple[str, str, int, int]:
         return (self.source, self.path, self.byte_start, self.byte_end)
@@ -40,6 +41,7 @@ class Event:
         return {
             "source": self.source,
             "client": self.client,
+            "time": self.time,
             "path": self.path,
             "byte_start": self.byte_start,
             "byte_end": self.byte_end,
@@ -49,6 +51,7 @@ class Event:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> Event:
         client = data["client"]
+        time = data.get("time")
         byte_start = data["byte_start"]
         byte_end = data["byte_end"]
         source = data["source"]
@@ -58,6 +61,8 @@ class Event:
             raise TypeError("event fields must be strings")
         if client is not None and not isinstance(client, str):
             raise TypeError("client must be a string or null")
+        if time is not None and not isinstance(time, str):
+            raise TypeError("time must be a string or null")
         if isinstance(byte_start, bool) or not isinstance(byte_start, int):
             raise TypeError("byte_start must be an integer")
         if isinstance(byte_end, bool) or not isinstance(byte_end, int):
@@ -66,6 +71,7 @@ class Event:
             source=source,
             client=client,
             path=path,
+            time=time,
             byte_start=byte_start,
             byte_end=byte_end,
             excerpt=excerpt,

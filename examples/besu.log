@@ -1,0 +1,3 @@
+2026-10-08 06:00:00.100+00:00 | main | INFO  | Besu | Starting Besu
+2026-10-08 06:12:12.200+00:00 | EthScheduler-Workers-0 | INFO  | BlockProcessor | Imported #21234561
+2026-10-08 06:13:58.900+00:00 | EthScheduler-Workers-0 | ERROR | Database | Failed to persist block

@@ -24,6 +24,8 @@ Work is tracked in [milestones](https://github.com/ehsanhajian/chainlog-ai/miles
 
 `examples/` is a short incident you can ingest without a node. The files include fake secrets. Ingest prints `case <id>`. The excerpts are in `~/.chainlog-ai/cases/<id>/case.json` (or under `CHAINLOG_AI_HOME`). A key, mnemonic, JWT, password, or API token is marked `[redacted]`. The pubkey, peer id, and block hash stay. The same flags take the operator's own files.
 
+`examples/geth.log` starts with a Geth banner, so the execution events are recorded as `geth` with the time each line prints. `examples/nethermind.log`, `examples/erigon.log`, `examples/besu.log`, and `examples/reth.log` are the other execution clients. `--execution-client` names the client when that banner is not in the file.
+
 ```bash
 chainlog-ai ingest \
   --execution examples/geth.log \
@@ -32,6 +34,8 @@ chainlog-ai ingest \
   --builder examples/mev-boost.log \
   --kube examples/events.json
 
+chainlog-ai ingest --execution examples/reth.log
+chainlog-ai ingest --execution examples/geth.log --execution-client geth
 chainlog-ai ingest --case 20261008T061200Z --execution examples/geth.log
 chainlog-ai why --case 20261008T061200Z
 chainlog-ai ask --case 20261008T061200Z "what happened in the slot before the miss?"

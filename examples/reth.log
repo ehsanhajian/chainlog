@@ -1,0 +1,3 @@
+2026-10-08T06:00:00.100000Z  INFO reth: Starting reth
+2026-10-08T06:12:12.200000Z  INFO reth_node_events: Chain tip updated number=21234561
+2026-10-08T06:13:58.900000Z ERROR reth_db: Failed to persist block
