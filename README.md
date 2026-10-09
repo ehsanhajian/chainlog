@@ -22,7 +22,7 @@ Work is tracked in [milestones](https://github.com/ehsanhajian/chainlog-ai/miles
 
 `why` can take a case id, or the same files as `ingest`. It classifies, builds the timeline, and states a cause.
 
-`examples/` is a short incident in this repository. The same flags take the operator's own files.
+`examples/` is a short incident you can ingest without a node. The files include fake secrets. Ingest prints `case <id>`. The excerpts are in `~/.chainlog-ai/cases/<id>/case.json` (or under `CHAINLOG_AI_HOME`). A key, mnemonic, JWT, password, or API token is marked `[redacted]`. The pubkey, peer id, and block hash stay. The same flags take the operator's own files.
 
 ```bash
 chainlog-ai ingest \
