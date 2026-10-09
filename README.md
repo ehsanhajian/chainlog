@@ -26,6 +26,8 @@ Work is tracked in [milestones](https://github.com/ehsanhajian/chainlog-ai/miles
 
 `examples/geth.log` starts with a Geth banner, so the execution events are recorded as `geth` with the time each line prints. `examples/nethermind.log`, `examples/erigon.log`, `examples/besu.log`, and `examples/reth.log` are the other execution clients. `--execution-client` names the client when that banner is not in the file.
 
+`examples/beacon.log` is Lighthouse. `examples/prysm.log`, `examples/teku.log`, `examples/nimbus.log`, and `examples/lodestar.log` are the other consensus clients. A line that prints a slot, epoch, or block keeps those fields. `--consensus-client` names the client when the banner is absent.
+
 ```bash
 chainlog-ai ingest \
   --execution examples/geth.log \
@@ -36,6 +38,8 @@ chainlog-ai ingest \
 
 chainlog-ai ingest --execution examples/reth.log
 chainlog-ai ingest --execution examples/geth.log --execution-client geth
+chainlog-ai ingest --consensus examples/prysm.log
+chainlog-ai ingest --consensus examples/beacon.log --consensus-client lighthouse
 chainlog-ai ingest --case 20261008T061200Z --execution examples/geth.log
 chainlog-ai why --case 20261008T061200Z
 chainlog-ai ask --case 20261008T061200Z "what happened in the slot before the miss?"

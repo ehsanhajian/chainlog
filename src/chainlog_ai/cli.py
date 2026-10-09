@@ -75,6 +75,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Name the preceding execution log: geth, nethermind, erigon, besu, or reth",
     )
     _add_source(ingest_parser, "--consensus", "consensus", "Consensus-client log")
+    ingest_parser.add_argument(
+        "--consensus-client",
+        action=_ClientInput,
+        const="consensus",
+        metavar="CLIENT",
+        help="Name the preceding consensus log: lighthouse, prysm, teku, nimbus, or lodestar",
+    )
     _add_source(ingest_parser, "--validator", "validator", "Validator or signer log")
     _add_source(ingest_parser, "--builder", "builder", "Builder log")
     _add_source(ingest_parser, "--kube", "kubernetes", "Kubernetes log or events file")

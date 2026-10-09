@@ -277,7 +277,7 @@ def test_example_logs_open_a_case(home: Path) -> None:
         counts[event.source] = counts.get(event.source, 0) + 1
     assert counts == {
         "execution": 9,
-        "consensus": 6,
+        "consensus": 7,
         "validator": 5,
         "builder": 5,
         "kubernetes": 3,
@@ -300,7 +300,14 @@ def test_example_logs_open_a_case(home: Path) -> None:
     assert {event.client for event in execution} == {"geth"}
     assert all(event.time is not None and event.time.endswith("Z") for event in execution)
     assert any(event.time is not None and event.time.endswith("10-08T06:12:12.004Z") for event in execution)
-    others = [event for event in case.events if event.source != "execution"]
+    consensus = [event for event in case.events if event.source == "consensus"]
+    assert {event.client for event in consensus} == {"lighthouse"}
+    assert any(
+        event.slot == 10274304 and event.epoch == 321072 and event.block == "0xabababababababab"
+        for event in consensus
+    )
+    assert any(event.slot is None and event.epoch is None and event.block is None for event in consensus)
+    others = [event for event in case.events if event.source not in {"execution", "consensus"}]
     assert all(event.client is None and event.time is None for event in others)
 
 

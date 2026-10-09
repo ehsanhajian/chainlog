@@ -1,0 +1,3 @@
+2026-10-08 06:00:00.100+00:00 | main | INFO  | Teku | Starting Teku
+2026-10-08 06:12:12.200+00:00 | EventThread | INFO  | SlotProcessor | Slot: 10274304, Epoch: 321072, block: 0xefefefefefefefef
+2026-10-08 06:14:00.010+00:00 | EventThread | WARN  | Attestation | Missed attestation
