@@ -1,3 +1,5 @@
+import contextlib
+import io
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -6,9 +8,22 @@ import pytest
 from chainlog_ai.case import load_case
 from chainlog_ai.cli import main
 from chainlog_ai.execution import detect_execution_client, parse_execution_time
-from tests.test_ingest import case_id_from, run
 
 NOW = datetime(2026, 10, 9, tzinfo=timezone.utc)
+
+
+def run(*argv: str) -> tuple[int, str, str]:
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        code = main(list(argv))
+    return code, stdout.getvalue(), stderr.getvalue()
+
+
+def case_id_from(stdout: str) -> str:
+    line = stdout.strip().splitlines()[0]
+    assert line.startswith("case ")
+    return line.removeprefix("case ")
 
 
 @pytest.fixture
