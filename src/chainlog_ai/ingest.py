@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from chainlog_ai.case import Event, append_events, open_case, save_case, validate_case_id
+from chainlog_ai.execution import (
+    detect_execution_client,
+    normalize_execution_client,
+    parse_execution_time,
+)
 from chainlog_ai.redact import redact_excerpt
 
 SOURCES = ("execution", "consensus", "validator", "builder", "kubernetes")
@@ -15,23 +21,24 @@ class InputError(Exception):
     """An input file could not be read."""
 
 
-def ingest(inputs: list[tuple[str, str]], case_id: str | None = None) -> str:
+def ingest(inputs: list[tuple[str, ...]], case_id: str | None = None) -> str:
     """Read ``inputs`` and write them to a case. Return the case id."""
 
     if case_id is not None:
         validate_case_id(case_id)
     events: list[Event] = []
-    for source, raw_path in inputs:
+    for item in inputs:
+        source, raw_path, client = _input(item)
         if source not in SOURCES:
             raise InputError(f"unknown source: {source}")
-        events.extend(read_file(Path(raw_path), source))
+        events.extend(read_file(Path(raw_path), source, client=client))
     case = open_case(case_id)
     append_events(case, events)
     save_case(case)
     return case.id
 
 
-def read_file(path: Path, source: str) -> list[Event]:
+def read_file(path: Path, source: str, client: str | None = None) -> list[Event]:
     file_path = path.expanduser()
     if not file_path.is_file():
         raise InputError(f"cannot read {path}: not a file")
@@ -39,18 +46,43 @@ def read_file(path: Path, source: str) -> list[Event]:
         data = file_path.read_bytes()
     except OSError as exc:
         raise InputError(f"cannot read {path}: {exc.strerror}") from exc
+    records = _records(data)
+    named = _execution_client(source, client, records)
+    now = datetime.now(timezone.utc)
     stored_path = str(file_path.resolve())
-    return [
-        Event(
-            source=source,
-            client=None,
-            path=stored_path,
-            byte_start=start,
-            byte_end=end,
-            excerpt=redact_excerpt(excerpt),
+    events: list[Event] = []
+    for start, end, excerpt in records:
+        when = parse_execution_time(excerpt, now=now) if source == "execution" else None
+        events.append(
+            Event(
+                source=source,
+                client=named,
+                path=stored_path,
+                byte_start=start,
+                byte_end=end,
+                excerpt=redact_excerpt(excerpt),
+                time=when,
+            )
         )
-        for start, end, excerpt in _records(data)
-    ]
+    return events
+
+
+def _input(item: tuple[str, ...]) -> tuple[str, str, str | None]:
+    source, raw_path = item[0], item[1]
+    client = item[2] if len(item) > 2 else None
+    return source, raw_path, client if isinstance(client, str) else None
+
+
+def _execution_client(
+    source: str,
+    client: str | None,
+    records: list[tuple[int, int, str]],
+) -> str | None:
+    if source != "execution":
+        return None
+    if client is not None:
+        return normalize_execution_client(client)
+    return detect_execution_client("\n".join(excerpt for _, _, excerpt in records))
 
 
 def _records(data: bytes) -> list[tuple[int, int, str]]:

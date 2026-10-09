@@ -276,7 +276,7 @@ def test_example_logs_open_a_case(home: Path) -> None:
     for event in case.events:
         counts[event.source] = counts.get(event.source, 0) + 1
     assert counts == {
-        "execution": 8,
+        "execution": 9,
         "consensus": 6,
         "validator": 5,
         "builder": 5,
@@ -296,6 +296,12 @@ def test_example_logs_open_a_case(home: Path) -> None:
     assert any("12D3KooWAbcdefghijkmnopqrstuvwxyz123456789" in excerpt for excerpt in excerpts)
     assert any("0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd" in excerpt for excerpt in excerpts)
     assert any(excerpt == "Failed: mount failed password=[redacted]" for excerpt in excerpts)
+    execution = [event for event in case.events if event.source == "execution"]
+    assert {event.client for event in execution} == {"geth"}
+    assert all(event.time is not None and event.time.endswith("Z") for event in execution)
+    assert any(event.time is not None and event.time.endswith("10-08T06:12:12.004Z") for event in execution)
+    others = [event for event in case.events if event.source != "execution"]
+    assert all(event.client is None and event.time is None for event in others)
 
 
 def test_json_log_line_stays_one_excerpt(home: Path, tmp_path: Path) -> None:
