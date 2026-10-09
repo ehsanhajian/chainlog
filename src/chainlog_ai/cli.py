@@ -83,7 +83,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Name the preceding consensus log: lighthouse, prysm, teku, nimbus, or lodestar",
     )
     _add_source(ingest_parser, "--validator", "validator", "Validator or signer log")
+    ingest_parser.add_argument(
+        "--validator-client",
+        action=_ClientInput,
+        const="validator",
+        metavar="CLIENT",
+        help="Name the preceding validator log: lighthouse, prysm, teku, nimbus, lodestar, or web3signer",
+    )
     _add_source(ingest_parser, "--builder", "builder", "Builder log")
+    ingest_parser.add_argument(
+        "--builder-client",
+        action=_ClientInput,
+        const="builder",
+        metavar="CLIENT",
+        help="Name the preceding builder log: mev-boost",
+    )
     _add_source(ingest_parser, "--kube", "kubernetes", "Kubernetes log or events file")
 
     why_parser = commands.add_parser(

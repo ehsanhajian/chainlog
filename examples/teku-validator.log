@@ -1,0 +1,3 @@
+2026-10-08 06:00:00.100+00:00 | main | INFO  | Teku | Starting Teku validator client
+2026-10-08 06:12:00.200+00:00 | main | INFO  | Validator | Published attestation Slot: 10274304
+2026-10-08 06:14:00.300+00:00 | main | ERROR | Validator | Failed to publish attestation

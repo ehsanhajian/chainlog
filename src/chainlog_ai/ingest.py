@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from chainlog_ai.builder import detect_builder_client, normalize_builder_client
 from chainlog_ai.case import Event, append_events, open_case, save_case, validate_case_id
 from chainlog_ai.consensus import (
     consensus_fields,
@@ -19,6 +20,7 @@ from chainlog_ai.execution import (
     parse_execution_time,
 )
 from chainlog_ai.redact import redact_excerpt
+from chainlog_ai.validator import detect_validator_client, normalize_validator_client
 
 SOURCES = ("execution", "consensus", "validator", "builder", "kubernetes")
 
@@ -96,6 +98,14 @@ def _named_client(
         if client is not None:
             return normalize_consensus_client(client)
         return detect_consensus_client(text)
+    if source == "validator":
+        if client is not None:
+            return normalize_validator_client(client)
+        return detect_validator_client(text)
+    if source == "builder":
+        if client is not None:
+            return normalize_builder_client(client)
+        return detect_builder_client(text)
     return None
 
 
@@ -109,6 +119,8 @@ def _line_fields(
     if source == "consensus":
         slot, epoch, block = consensus_fields(excerpt)
         return parse_consensus_time(excerpt, now=now), slot, epoch, block
+    if source in {"validator", "builder"}:
+        return parse_consensus_time(excerpt, now=now), None, None, None
     return None, None, None, None
 
 
