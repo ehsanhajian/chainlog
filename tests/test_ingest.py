@@ -276,14 +276,26 @@ def test_example_logs_open_a_case(home: Path) -> None:
     for event in case.events:
         counts[event.source] = counts.get(event.source, 0) + 1
     assert counts == {
-        "execution": 5,
-        "consensus": 5,
-        "validator": 3,
-        "builder": 4,
-        "kubernetes": 2,
+        "execution": 8,
+        "consensus": 6,
+        "validator": 5,
+        "builder": 5,
+        "kubernetes": 3,
     }
-    assert any("leveldb: closed" in event.excerpt for event in case.events)
-    assert any(event.excerpt == "Unhealthy: Readiness probe failed: connection refused" for event in case.events)
+    excerpts = [event.excerpt for event in case.events]
+    blob = "\n".join(excerpts)
+    assert "leveldb: closed" in blob
+    assert "Unhealthy: Readiness probe failed: connection refused" in excerpts
+    assert "hunter2" not in blob
+    assert "abandon abandon" not in blob
+    assert "eyJhbGciOiJub25lIn0" not in blob
+    assert "0x1111111111111111111111111111111111111111111111111111111111111111" not in blob
+    assert "kkkkkkkkkkkkkkkkkkkkkkkk" not in blob
+    assert any("[redacted]" in excerpt for excerpt in excerpts)
+    assert any("0xefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef" in excerpt for excerpt in excerpts)
+    assert any("12D3KooWAbcdefghijkmnopqrstuvwxyz123456789" in excerpt for excerpt in excerpts)
+    assert any("0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd" in excerpt for excerpt in excerpts)
+    assert any(excerpt == "Failed: mount failed password=[redacted]" for excerpt in excerpts)
 
 
 def test_json_log_line_stays_one_excerpt(home: Path, tmp_path: Path) -> None:
