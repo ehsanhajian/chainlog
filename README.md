@@ -28,6 +28,8 @@ Work is tracked in [milestones](https://github.com/ehsanhajian/chainlog-ai/miles
 
 `examples/beacon.log` is Lighthouse. `examples/prysm.log`, `examples/teku.log`, `examples/nimbus.log`, and `examples/lodestar.log` are the other consensus clients. A line that prints a slot, epoch, or block keeps those fields. `--consensus-client` names the client when the banner is absent.
 
+`examples/validator.log` is the Lighthouse validator client. `examples/prysm-validator.log`, `examples/teku-validator.log`, `examples/nimbus-validator.log`, and `examples/lodestar-validator.log` are the other validator clients. `examples/web3signer.log` stays on the validator source, including a signing failure and doppelganger protection. `examples/mev-boost.log` stays on the builder source, including a relay timeout and a builder timeout. `--validator-client` and `--builder-client` name the client when the banner is absent.
+
 ```bash
 chainlog-ai ingest \
   --execution examples/geth.log \
@@ -40,6 +42,9 @@ chainlog-ai ingest --execution examples/reth.log
 chainlog-ai ingest --execution examples/geth.log --execution-client geth
 chainlog-ai ingest --consensus examples/prysm.log
 chainlog-ai ingest --consensus examples/beacon.log --consensus-client lighthouse
+chainlog-ai ingest --validator examples/validator.log
+chainlog-ai ingest --validator examples/web3signer.log
+chainlog-ai ingest --builder examples/mev-boost.log
 chainlog-ai ingest --case 20261008T061200Z --execution examples/geth.log
 chainlog-ai why --case 20261008T061200Z
 chainlog-ai ask --case 20261008T061200Z "what happened in the slot before the miss?"

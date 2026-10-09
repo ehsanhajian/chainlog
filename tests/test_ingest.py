@@ -278,8 +278,8 @@ def test_example_logs_open_a_case(home: Path) -> None:
     assert counts == {
         "execution": 9,
         "consensus": 7,
-        "validator": 5,
-        "builder": 5,
+        "validator": 6,
+        "builder": 7,
         "kubernetes": 3,
     }
     excerpts = [event.excerpt for event in case.events]
@@ -307,7 +307,15 @@ def test_example_logs_open_a_case(home: Path) -> None:
         for event in consensus
     )
     assert any(event.slot is None and event.epoch is None and event.block is None for event in consensus)
-    others = [event for event in case.events if event.source not in {"execution", "consensus"}]
+    validator = [event for event in case.events if event.source == "validator"]
+    assert {event.client for event in validator} == {"lighthouse"}
+    assert all(event.time is not None and event.time.endswith("Z") for event in validator)
+    builder = [event for event in case.events if event.source == "builder"]
+    assert {event.client for event in builder} == {"mev-boost"}
+    assert all(event.time is not None and event.time.endswith("Z") for event in builder)
+    assert any("relay" in event.excerpt for event in builder)
+    assert any("builder timeout" in event.excerpt for event in builder)
+    others = [event for event in case.events if event.source not in {"execution", "consensus", "validator", "builder"}]
     assert all(event.client is None and event.time is None for event in others)
 
 

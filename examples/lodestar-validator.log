@@ -1,0 +1,3 @@
+Oct-08 06:00:00.123[] info: Lodestar validator version=v1.22.0
+Oct-08 06:12:00.240[] info: Published attestation slot=10274304
+Oct-08 06:14:00.010[] info: Failed to publish attestation
