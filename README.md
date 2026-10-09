@@ -76,7 +76,7 @@ A pattern exported for another host contains class ids, client, version, and the
 
 Cases are written under `~/.chainlog-ai`, or `CHAINLOG_AI_HOME` when that is set. The case stores redacted excerpts and citations. The raw files stay at the paths the operator passed.
 
-Redaction removes private keys, mnemonics, keystore passwords, JWT secrets, and API tokens before the case is written and before any model sees text. Validator pubkeys and peer ids stay, because the timeline joins on them. A removed span is marked.
+Redaction removes private keys, mnemonics, keystore passwords, JWT secrets, and API tokens before the case is written and before any model sees text. Validator pubkeys and peer ids stay, because the timeline joins on them. A removed span is marked `[redacted]`.
 
 `ask` answers from the case. With no model configured, it answers from the cause and the sourced runbook. `--remote` is off unless that invocation sets it, and the command prints that a remote call is about to happen. If redaction did not run, the remote call is refused.
 
