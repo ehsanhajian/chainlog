@@ -3,11 +3,23 @@
 from __future__ import annotations
 
 import json
+import os
+import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
 from chainlog_ai.builder import detect_builder_client, normalize_builder_client
-from chainlog_ai.case import Event, append_events, open_case, save_case, validate_case_id
+from chainlog_ai.case import (
+    Case,
+    Event,
+    FileCursor,
+    Rotation,
+    append_events,
+    open_case,
+    save_case,
+    validate_case_id,
+)
 from chainlog_ai.consensus import (
     consensus_fields,
     detect_consensus_client,
@@ -38,22 +50,125 @@ class InputError(Exception):
     """An input file could not be read."""
 
 
-def ingest(inputs: list[tuple[str, ...]], case_id: str | None = None) -> str:
-    """Read ``inputs`` and write them to a case. Return the case id."""
+def ingest(
+    inputs: list[tuple[str, ...]],
+    case_id: str | None = None,
+    *,
+    follow: bool = False,
+    should_stop: Callable[[], bool] | None = None,
+    pause: float = 0.2,
+    on_ready: Callable[[str], None] | None = None,
+) -> str:
+    """Read ``inputs`` and write them to a case. Return the case id.
+
+    ``follow`` keeps reading the local files until the operator stops the
+    command. A later ingest of the same case continues from the stored offset.
+    """
 
     if case_id is not None:
         validate_case_id(case_id)
+    case = open_case(case_id)
+    if on_ready is not None:
+        on_ready(case.id)
+    try:
+        while True:
+            if _read_inputs(case, inputs, keep_partial=not follow):
+                save_case(case)
+            if not follow:
+                break
+            if should_stop is not None and should_stop():
+                break
+            time.sleep(pause)
+    except KeyboardInterrupt:
+        pass
+    save_case(case)
+    return case.id
+
+
+def _read_inputs(case: Case, inputs: list[tuple[str, ...]], *, keep_partial: bool) -> bool:
+    changed = False
     events: list[Event] = []
     for item in inputs:
         source, raw_path, client, meta = _input(item)
         if source not in SOURCES:
             raise InputError(f"unknown source: {source}")
-        events.extend(read_file(Path(raw_path), source, client=client, meta=meta))
-    _mark_previous_containers(events)
-    case = open_case(case_id)
-    append_events(case, events)
-    save_case(case)
-    return case.id
+        found, advanced = _read_followed(case, Path(raw_path), source, client, meta, keep_partial)
+        events.extend(found)
+        changed = changed or advanced or bool(found)
+    if events:
+        _mark_previous_containers(events)
+        append_events(case, events)
+    return changed
+
+
+def _read_followed(
+    case: Case,
+    path: Path,
+    source: str,
+    client: str | None,
+    meta: dict[str, object] | None,
+    keep_partial: bool,
+) -> tuple[list[Event], bool]:
+    file_path = path.expanduser()
+    if not file_path.is_file():
+        if keep_partial:
+            raise InputError(f"cannot read {path}: not a file")
+        return [], False
+    resolved = file_path.resolve()
+    try:
+        handle = resolved.open("rb")
+    except OSError as exc:
+        raise InputError(f"cannot read {path}: {exc.strerror}") from exc
+    with handle:
+        state = os.fstat(handle.fileno())
+        cursor, rotated = _cursor(case, str(resolved), state)
+        handle.seek(cursor.offset)
+        chunk = handle.read()
+    known = _known_client(case, str(resolved))
+    events, consumed = read_file(
+        resolved,
+        source,
+        client=client,
+        meta=meta,
+        data=chunk,
+        base=cursor.offset,
+        keep_partial=keep_partial,
+        known_client=known,
+        full_file=cursor.offset == 0,
+    )
+    for event in events:
+        event.generation = cursor.generation
+    cursor.offset += consumed
+    return events, rotated or consumed > 0
+
+
+def _cursor(case: Case, key: str, state: os.stat_result) -> tuple[FileCursor, bool]:
+    cursor = case.files.get(key)
+    if cursor is None:
+        cursor = FileCursor(offset=0, inode=state.st_ino, device=state.st_dev)
+        case.files[key] = cursor
+        return cursor, True
+    replaced = cursor.inode != state.st_ino or cursor.device != state.st_dev
+    truncated = state.st_size < cursor.offset
+    if not replaced and not truncated:
+        return cursor, False
+    cursor.rotations.append(Rotation(time=_utc_now(), inode=cursor.inode))
+    cursor.inode = state.st_ino
+    cursor.device = state.st_dev
+    cursor.generation += 1
+    cursor.offset = 0
+    return cursor, True
+
+
+def _known_client(case: Case, path: str) -> str | None:
+    for event in reversed(case.events):
+        if event.path == path and event.client:
+            return event.client
+    return None
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def read_file(
@@ -61,21 +176,39 @@ def read_file(
     source: str,
     client: str | None = None,
     meta: dict[str, object] | None = None,
-) -> list[Event]:
+    *,
+    data: bytes | None = None,
+    base: int = 0,
+    keep_partial: bool = True,
+    known_client: str | None = None,
+    full_file: bool = True,
+) -> tuple[list[Event], int]:
     file_path = path.expanduser()
-    if not file_path.is_file():
-        raise InputError(f"cannot read {path}: not a file")
-    try:
-        data = file_path.read_bytes()
-    except OSError as exc:
-        raise InputError(f"cannot read {path}: {exc.strerror}") from exc
-    if source == "kubernetes":
-        return _kubernetes_file(file_path, data, meta)
-    records = _records(data)
-    named = _named_client(source, client, records)
-    now = datetime.now(timezone.utc)
+    if data is None:
+        if not file_path.is_file():
+            raise InputError(f"cannot read {path}: not a file")
+        try:
+            data = file_path.read_bytes()
+        except OSError as exc:
+            raise InputError(f"cannot read {path}: {exc.strerror}") from exc
+        base = 0
+        full_file = True
     stored_path = str(file_path.resolve())
-    events: list[Event] = []
+    if source == "kubernetes" and full_file and base == 0:
+        cluster = _cluster_events(file_path, data)
+        if cluster is not None:
+            return cluster, len(data)
+    if keep_partial and base == 0 and source != "kubernetes":
+        records = _records(data)
+        consumed = len(data)
+    else:
+        records, consumed = _complete_lines(data, base, keep_partial=keep_partial)
+    if source == "kubernetes":
+        place = _kube_meta(file_path, meta)
+        return _container_log(records, stored_path, place, known_client), consumed
+    named = _named_client(source, client, records) or known_client
+    now = datetime.now(timezone.utc)
+    events = []
     for start, end, excerpt in records:
         when, slot, epoch, block = _line_fields(source, excerpt, now)
         events.append(
@@ -92,7 +225,7 @@ def read_file(
                 block=block,
             )
         )
-    return events
+    return events, consumed
 
 
 def _input(item: tuple[str, ...]) -> tuple[str, str, str | None, dict[str, object] | None]:
@@ -146,19 +279,19 @@ def _line_fields(
     return None, None, None, None
 
 
-def _kubernetes_file(path: Path, data: bytes, meta: dict[str, object] | None) -> list[Event]:
-    place = _kube_meta(path, meta)
+def _cluster_events(path: Path, data: bytes) -> list[Event] | None:
     text = _decode_utf8(data)
+    if text is None:
+        return None
+    documents = kubernetes_events(text)
+    if documents is None:
+        return None
     stored_path = str(path.resolve())
     now = datetime.now(timezone.utc)
-    if text is not None:
-        documents = kubernetes_events(text)
-        if documents is not None:
-            return [
-                _cluster_event(path_text=text, event=event, start=start, end=end, stored_path=stored_path, now=now)
-                for event, start, end in documents
-            ]
-    return _container_log(data, stored_path, place, now)
+    return [
+        _cluster_event(path_text=text, event=event, start=start, end=end, stored_path=stored_path, now=now)
+        for event, start, end in documents
+    ]
 
 
 def _kube_meta(path: Path, meta: dict[str, object] | None) -> dict[str, object]:
@@ -198,14 +331,14 @@ def _cluster_event(
 
 
 def _container_log(
-    data: bytes,
+    records: list[tuple[int, int, str]],
     stored_path: str,
     place: dict[str, object],
-    now: datetime,
+    known_client: str | None,
 ) -> list[Event]:
-    records = _line_records(data)
+    now = datetime.now(timezone.utc)
     messages = [_application_line(excerpt)[0] for _, _, excerpt in records]
-    named = application_client("\n".join(messages))
+    named = application_client("\n".join(messages)) or known_client
     source = PREVIOUS_SOURCE if place.get("previous") is True else "kubernetes"
     restart = place.get("restart")
     counted = restart if isinstance(restart, int) else None
@@ -288,14 +421,33 @@ def _decode_utf8(data: bytes) -> str | None:
         return None
 
 
-def _line_records(data: bytes) -> list[tuple[int, int, str]]:
+def _complete_lines(
+    data: bytes,
+    base: int,
+    *,
+    keep_partial: bool,
+) -> tuple[list[tuple[int, int, str]], int]:
+    if not data:
+        return [], 0
+    view = data
+    consumed = len(data)
+    if not keep_partial and not data.endswith((b"\n", b"\r")):
+        last_nl = max(data.rfind(b"\n"), data.rfind(b"\r"))
+        if last_nl < 0:
+            return [], 0
+        view = data[: last_nl + 1]
+        consumed = last_nl + 1
+    return _line_records(view, base), consumed
+
+
+def _line_records(data: bytes, base: int = 0) -> list[tuple[int, int, str]]:
     records: list[tuple[int, int, str]] = []
     start = 0
     for raw in data.splitlines(keepends=True):
         content = raw.rstrip(b"\r\n")
         end = start + len(content)
         if content.strip():
-            records.append((start, end, content.decode("utf-8", errors="replace")))
+            records.append((base + start, base + end, content.decode("utf-8", errors="replace")))
         start += len(raw)
     return records
 
