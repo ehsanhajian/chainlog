@@ -6,7 +6,7 @@ import argparse
 import sys
 
 from chainlog_ai import __version__
-from chainlog_ai.case import CaseError, CaseNotFoundError, load_case
+from chainlog_ai.case import CaseError, CaseNotFoundError, Event, load_case
 from chainlog_ai.ingest import SOURCES, InputError, ingest
 
 
@@ -228,8 +228,18 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
             print(f"case {case_id}", flush=True)
             announced = True
 
+    def on_events(events: list[Event]) -> None:
+        for event in events:
+            print(event.excerpt, flush=True)
+
     try:
-        case_id = ingest(inputs, case_id=args.case, follow=args.follow, on_ready=on_ready)
+        case_id = ingest(
+            inputs,
+            case_id=args.case,
+            follow=args.follow,
+            on_ready=on_ready,
+            on_events=on_events if args.follow else None,
+        )
     except (InputError, CaseError) as exc:
         print(exc, file=sys.stderr)
         return 3

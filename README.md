@@ -32,7 +32,7 @@ Work is tracked in [milestones](https://github.com/ehsanhajian/chainlog-ai/miles
 
 `examples/events.json` is a Kubernetes events document. Each event keeps its pod, container, namespace, and reason, including OOMKilled, Killing, BackOff, Unhealthy, Evicted, FailedMount, node disk pressure, and FailedScheduling. `examples/pods/ethereum_geth-0_poduid/geth/0.log` is the previous container and `1.log` is the current one. The restart count comes from the file name. The previous container is stored as its own source. A Geth line inside the pod is recorded as `geth`, and the pod name stays with it. `--namespace`, `--pod`, `--container`, `--restart`, and `--previous` name the container when the path is not a kubelet log path.
 
-`examples/follow.log` is a short local log. `--follow` reads new lines from that file until the command is stopped, and prints the case id first. A later ingest of the same case continues from the stored offset for each file. Replacing the file, so it has a new inode, starts again, and the case records the rotation.
+`examples/follow.log` is a short local log. `--follow` prints the case id, then each new line, and keeps reading until the command is stopped. A later ingest of the same case continues from the stored offset for each file. Replacing the file, so it has a new inode, starts again, and the case records the rotation.
 
 ```bash
 chainlog-ai ingest \
