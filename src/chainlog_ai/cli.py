@@ -42,7 +42,54 @@ class _FileInput(argparse.Action):
         if not inputs:
             inputs = []
             setattr(namespace, "inputs", inputs)
-        inputs.append([self.const, values, None])
+        inputs.append([self.const, values, None, None])
+
+
+def _preceding_kube(
+    parser: argparse.ArgumentParser,
+    namespace: argparse.Namespace,
+    option_string: str | None,
+) -> list[object]:
+    inputs = getattr(namespace, "inputs", None) or []
+    for item in reversed(inputs):
+        if item[0] == "kubernetes":
+            if item[3] is None:
+                item[3] = {}
+            return item
+    parser.error(f"{option_string} needs a preceding --kube file")
+    raise AssertionError
+
+
+class _KubeValue(argparse.Action):
+    """Attach pod, container, namespace, or restart to the preceding ``--kube`` file."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | None,
+        option_string: str | None = None,
+    ) -> None:
+        item = _preceding_kube(parser, namespace, option_string)
+        meta = item[3]
+        assert isinstance(meta, dict)
+        meta[self.dest] = values
+
+
+class _KubePrevious(argparse.Action):
+    """Mark the preceding ``--kube`` file as the previous container."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | None,
+        option_string: str | None = None,
+    ) -> None:
+        item = _preceding_kube(parser, namespace, option_string)
+        meta = item[3]
+        assert isinstance(meta, dict)
+        meta["previous"] = True
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -57,8 +104,8 @@ def build_parser() -> argparse.ArgumentParser:
         "ingest",
         help="Read logs into a local case",
         description=(
-            "Read plain text, JSON lines, or a Kubernetes events file into a case "
-            "under ~/.chainlog-ai, or CHAINLOG_AI_HOME when that is set."
+            "Read plain text, JSON lines, a container log, or a Kubernetes events file "
+            "into a case under ~/.chainlog-ai, or CHAINLOG_AI_HOME when that is set."
         ),
     )
     ingest_parser.set_defaults(inputs=[], func=_cmd_ingest)
@@ -98,7 +145,38 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="CLIENT",
         help="Name the preceding builder log: mev-boost",
     )
-    _add_source(ingest_parser, "--kube", "kubernetes", "Kubernetes log or events file")
+    _add_source(ingest_parser, "--kube", "kubernetes", "Kubernetes events file or container log")
+    ingest_parser.add_argument(
+        "--namespace",
+        action=_KubeValue,
+        metavar="NAME",
+        help="Namespace of the preceding container log",
+    )
+    ingest_parser.add_argument(
+        "--pod",
+        action=_KubeValue,
+        metavar="NAME",
+        help="Pod name of the preceding container log",
+    )
+    ingest_parser.add_argument(
+        "--container",
+        action=_KubeValue,
+        metavar="NAME",
+        help="Container name of the preceding container log",
+    )
+    ingest_parser.add_argument(
+        "--restart",
+        action=_KubeValue,
+        type=int,
+        metavar="N",
+        help="Restart count of the preceding container log",
+    )
+    ingest_parser.add_argument(
+        "--previous",
+        action=_KubePrevious,
+        nargs=0,
+        help="The preceding container log is the previous instance",
+    )
 
     why_parser = commands.add_parser(
         "why",
@@ -130,9 +208,9 @@ def main(argv: list[str] | None = None) -> int:
 
 def _cmd_ingest(args: argparse.Namespace) -> int:
     inputs = [
-        (source, path, client)
-        for source, path, client in args.inputs
-        if source in SOURCES
+        (item[0], item[1], item[2], item[3] if len(item) > 3 else None)
+        for item in args.inputs
+        if item[0] in SOURCES
     ]
     if not inputs:
         print("ingest needs an input file", file=sys.stderr)

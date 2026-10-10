@@ -30,6 +30,8 @@ Work is tracked in [milestones](https://github.com/ehsanhajian/chainlog-ai/miles
 
 `examples/validator.log` is the Lighthouse validator client. `examples/prysm-validator.log`, `examples/teku-validator.log`, `examples/nimbus-validator.log`, and `examples/lodestar-validator.log` are the other validator clients. `examples/web3signer.log` stays on the validator source, including a signing failure and doppelganger protection. `examples/mev-boost.log` stays on the builder source, including a relay timeout and a builder timeout. `--validator-client` and `--builder-client` name the client when the banner is absent.
 
+`examples/events.json` is a Kubernetes events document. Each event keeps its pod, container, namespace, and reason, including OOMKilled, Killing, BackOff, Unhealthy, Evicted, FailedMount, node disk pressure, and FailedScheduling. `examples/pods/ethereum_geth-0_poduid/geth/0.log` is the previous container and `1.log` is the current one. The restart count comes from the file name. The previous container is stored as its own source. A Geth line inside the pod is recorded as `geth`, and the pod name stays with it. `--namespace`, `--pod`, `--container`, `--restart`, and `--previous` name the container when the path is not a kubelet log path.
+
 ```bash
 chainlog-ai ingest \
   --execution examples/geth.log \
@@ -45,6 +47,10 @@ chainlog-ai ingest --consensus examples/beacon.log --consensus-client lighthouse
 chainlog-ai ingest --validator examples/validator.log
 chainlog-ai ingest --validator examples/web3signer.log
 chainlog-ai ingest --builder examples/mev-boost.log
+chainlog-ai ingest --kube examples/events.json
+chainlog-ai ingest \
+  --kube examples/pods/ethereum_geth-0_poduid/geth/0.log \
+  --kube examples/pods/ethereum_geth-0_poduid/geth/1.log
 chainlog-ai ingest --case 20261008T061200Z --execution examples/geth.log
 chainlog-ai why --case 20261008T061200Z
 chainlog-ai ask --case 20261008T061200Z "what happened in the slot before the miss?"

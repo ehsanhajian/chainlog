@@ -36,6 +36,11 @@ class Event:
     slot: int | None = None
     epoch: int | None = None
     block: str | None = None
+    pod: str | None = None
+    container: str | None = None
+    namespace: str | None = None
+    reason: str | None = None
+    restart: int | None = None
 
     def identity(self) -> tuple[str, str, int, int]:
         return (self.source, self.path, self.byte_start, self.byte_end)
@@ -51,6 +56,11 @@ class Event:
             "slot": self.slot,
             "epoch": self.epoch,
             "block": self.block,
+            "pod": self.pod,
+            "container": self.container,
+            "namespace": self.namespace,
+            "reason": self.reason,
+            "restart": self.restart,
             "excerpt": self.excerpt,
         }
 
@@ -66,6 +76,11 @@ class Event:
         slot = data.get("slot")
         epoch = data.get("epoch")
         block = data.get("block")
+        pod = data.get("pod")
+        container = data.get("container")
+        namespace = data.get("namespace")
+        reason = data.get("reason")
+        restart = data.get("restart")
         if not isinstance(source, str) or not isinstance(path, str) or not isinstance(excerpt, str):
             raise TypeError("event fields must be strings")
         if client is not None and not isinstance(client, str):
@@ -82,6 +97,16 @@ class Event:
             raise TypeError("epoch must be an integer or null")
         if block is not None and not isinstance(block, str):
             raise TypeError("block must be a string or null")
+        for label, value in (
+            ("pod", pod),
+            ("container", container),
+            ("namespace", namespace),
+            ("reason", reason),
+        ):
+            if value is not None and not isinstance(value, str):
+                raise TypeError(f"{label} must be a string or null")
+        if isinstance(restart, bool) or (restart is not None and not isinstance(restart, int)):
+            raise TypeError("restart must be an integer or null")
         return cls(
             source=source,
             client=client,
@@ -93,6 +118,11 @@ class Event:
             slot=slot,
             epoch=epoch,
             block=block,
+            pod=pod,
+            container=container,
+            namespace=namespace,
+            reason=reason,
+            restart=restart,
         )
 
 
