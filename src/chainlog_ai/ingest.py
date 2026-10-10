@@ -58,6 +58,7 @@ def ingest(
     should_stop: Callable[[], bool] | None = None,
     pause: float = 0.2,
     on_ready: Callable[[str], None] | None = None,
+    on_events: Callable[[list[Event]], None] | None = None,
 ) -> str:
     """Read ``inputs`` and write them to a case. Return the case id.
 
@@ -72,7 +73,10 @@ def ingest(
         on_ready(case.id)
     try:
         while True:
-            if _read_inputs(case, inputs, keep_partial=not follow):
+            added, changed = _read_inputs(case, inputs, keep_partial=not follow)
+            if follow and added and on_events is not None:
+                on_events(added)
+            if added or changed:
                 save_case(case)
             if not follow:
                 break
@@ -85,7 +89,12 @@ def ingest(
     return case.id
 
 
-def _read_inputs(case: Case, inputs: list[tuple[str, ...]], *, keep_partial: bool) -> bool:
+def _read_inputs(
+    case: Case,
+    inputs: list[tuple[str, ...]],
+    *,
+    keep_partial: bool,
+) -> tuple[list[Event], bool]:
     changed = False
     events: list[Event] = []
     for item in inputs:
@@ -97,8 +106,12 @@ def _read_inputs(case: Case, inputs: list[tuple[str, ...]], *, keep_partial: boo
         changed = changed or advanced or bool(found)
     if events:
         _mark_previous_containers(events)
+        before = len(case.events)
         append_events(case, events)
-    return changed
+        added = case.events[before:]
+    else:
+        added = []
+    return added, changed or bool(added)
 
 
 def _read_followed(

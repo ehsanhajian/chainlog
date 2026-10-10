@@ -56,6 +56,7 @@ def test_follow_reads_new_lines_until_stopped(home: Path, tmp_path: Path) -> Non
     path.write_text("INFO Starting Geth\n", encoding="utf-8")
     stop = threading.Event()
     errors: list[BaseException] = []
+    printed: list[str] = []
 
     def run() -> None:
         try:
@@ -65,6 +66,7 @@ def test_follow_reads_new_lines_until_stopped(home: Path, tmp_path: Path) -> Non
                 follow=True,
                 should_stop=stop.is_set,
                 pause=0.01,
+                on_events=lambda events: printed.extend(event.excerpt for event in events),
             )
         except BaseException as exc:
             errors.append(exc)
@@ -82,6 +84,10 @@ def test_follow_reads_new_lines_until_stopped(home: Path, tmp_path: Path) -> Non
     assert errors == []
     assert not thread.is_alive()
     assert [event.excerpt for event in load_case("followcase").events] == [
+        "INFO Starting Geth",
+        "imported new chain segment",
+    ]
+    assert printed == [
         "INFO Starting Geth",
         "imported new chain segment",
     ]
@@ -178,11 +184,14 @@ def test_follow_flag_prints_the_case_id(home: Path, tmp_path: Path, monkeypatch:
         case_id: str | None = None,
         follow: bool = False,
         on_ready=None,
+        on_events=None,
         **_kwargs: object,
     ) -> str:
         seen["follow"] = follow
         if on_ready is not None:
             on_ready("followcase")
+        if on_events is not None:
+            on_events([type("Line", (), {"excerpt": "imported new chain segment"})()])
         return "followcase"
 
     monkeypatch.setattr("chainlog_ai.cli.ingest", fake_ingest)
@@ -194,7 +203,7 @@ def test_follow_flag_prints_the_case_id(home: Path, tmp_path: Path, monkeypatch:
         code = main(["ingest", "--follow", "--execution", str(path)])
     assert code == 0
     assert seen["follow"] is True
-    assert stdout.getvalue() == "case followcase\n"
+    assert stdout.getvalue() == "case followcase\nimported new chain segment\n"
 
 
 def _wait(predicate) -> None:
