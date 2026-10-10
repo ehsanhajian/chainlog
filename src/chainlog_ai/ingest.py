@@ -19,6 +19,15 @@ from chainlog_ai.execution import (
     normalize_execution_client,
     parse_execution_time,
 )
+from chainlog_ai.kubernetes import (
+    PREVIOUS_SOURCE,
+    application_client,
+    container_time,
+    cri_message,
+    event_place,
+    event_time,
+    pod_log_path,
+)
 from chainlog_ai.redact import redact_excerpt
 from chainlog_ai.validator import detect_validator_client, normalize_validator_client
 
@@ -36,17 +45,23 @@ def ingest(inputs: list[tuple[str, ...]], case_id: str | None = None) -> str:
         validate_case_id(case_id)
     events: list[Event] = []
     for item in inputs:
-        source, raw_path, client = _input(item)
+        source, raw_path, client, meta = _input(item)
         if source not in SOURCES:
             raise InputError(f"unknown source: {source}")
-        events.extend(read_file(Path(raw_path), source, client=client))
+        events.extend(read_file(Path(raw_path), source, client=client, meta=meta))
+    _mark_previous_containers(events)
     case = open_case(case_id)
     append_events(case, events)
     save_case(case)
     return case.id
 
 
-def read_file(path: Path, source: str, client: str | None = None) -> list[Event]:
+def read_file(
+    path: Path,
+    source: str,
+    client: str | None = None,
+    meta: dict[str, object] | None = None,
+) -> list[Event]:
     file_path = path.expanduser()
     if not file_path.is_file():
         raise InputError(f"cannot read {path}: not a file")
@@ -54,6 +69,8 @@ def read_file(path: Path, source: str, client: str | None = None) -> list[Event]
         data = file_path.read_bytes()
     except OSError as exc:
         raise InputError(f"cannot read {path}: {exc.strerror}") from exc
+    if source == "kubernetes":
+        return _kubernetes_file(file_path, data, meta)
     records = _records(data)
     named = _named_client(source, client, records)
     now = datetime.now(timezone.utc)
@@ -78,10 +95,15 @@ def read_file(path: Path, source: str, client: str | None = None) -> list[Event]
     return events
 
 
-def _input(item: tuple[str, ...]) -> tuple[str, str, str | None]:
+def _input(item: tuple[str, ...]) -> tuple[str, str, str | None, dict[str, object] | None]:
     source, raw_path = item[0], item[1]
     client = item[2] if len(item) > 2 else None
-    return source, raw_path, client if isinstance(client, str) else None
+    meta = item[3] if len(item) > 3 else None
+    if not isinstance(client, str):
+        client = None
+    if not isinstance(meta, dict):
+        meta = None
+    return source, raw_path, client, meta
 
 
 def _named_client(
@@ -122,6 +144,129 @@ def _line_fields(
     if source in {"validator", "builder"}:
         return parse_consensus_time(excerpt, now=now), None, None, None
     return None, None, None, None
+
+
+def _kubernetes_file(path: Path, data: bytes, meta: dict[str, object] | None) -> list[Event]:
+    place = _kube_meta(path, meta)
+    text = _decode_utf8(data)
+    stored_path = str(path.resolve())
+    now = datetime.now(timezone.utc)
+    if text is not None:
+        documents = kubernetes_events(text)
+        if documents is not None:
+            return [
+                _cluster_event(path_text=text, event=event, start=start, end=end, stored_path=stored_path, now=now)
+                for event, start, end in documents
+            ]
+    return _container_log(data, stored_path, place, now)
+
+
+def _kube_meta(path: Path, meta: dict[str, object] | None) -> dict[str, object]:
+    found = pod_log_path(path) or {}
+    if meta:
+        found.update({key: value for key, value in meta.items() if value is not None})
+    restart = found.get("restart")
+    if restart is not None and (isinstance(restart, bool) or not isinstance(restart, int) or restart < 0):
+        raise InputError(f"invalid restart count: {restart}")
+    return found
+
+
+def _cluster_event(
+    *,
+    path_text: str,
+    event: dict[str, object],
+    start: int,
+    end: int,
+    stored_path: str,
+    now: datetime,
+) -> Event:
+    byte_start, byte_end = _byte_span(path_text, start, end)
+    pod, container, namespace, reason = event_place(event)
+    return Event(
+        source="kubernetes",
+        client=None,
+        path=stored_path,
+        byte_start=byte_start,
+        byte_end=byte_end,
+        excerpt=redact_excerpt(_event_excerpt(event)),
+        time=event_time(event, now=now),
+        pod=pod,
+        container=container,
+        namespace=namespace,
+        reason=reason,
+    )
+
+
+def _container_log(
+    data: bytes,
+    stored_path: str,
+    place: dict[str, object],
+    now: datetime,
+) -> list[Event]:
+    records = _line_records(data)
+    messages = [_application_line(excerpt)[0] for _, _, excerpt in records]
+    named = application_client("\n".join(messages))
+    source = PREVIOUS_SOURCE if place.get("previous") is True else "kubernetes"
+    restart = place.get("restart")
+    counted = restart if isinstance(restart, int) else None
+    events: list[Event] = []
+    for start, end, excerpt in records:
+        message, offset = _application_line(excerpt)
+        if not message.strip():
+            continue
+        prefix = len(excerpt[:offset].encode("utf-8"))
+        events.append(
+            Event(
+                source=source,
+                client=named,
+                path=stored_path,
+                byte_start=start + prefix,
+                byte_end=start + prefix + len(message.encode("utf-8")),
+                excerpt=redact_excerpt(message),
+                time=container_time(excerpt, message, now=now),
+                pod=_text_field(place.get("pod")),
+                container=_text_field(place.get("container")),
+                namespace=_text_field(place.get("namespace")),
+                restart=counted,
+            )
+        )
+    return events
+
+
+def _application_line(excerpt: str) -> tuple[str, int]:
+    found = cri_message(excerpt)
+    if found is None:
+        return excerpt, 0
+    return found
+
+
+def _text_field(value: object) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _mark_previous_containers(events: list[Event]) -> None:
+    """A lower restart of the same container is a previous source."""
+
+    groups: dict[tuple[str | None, str | None, str | None], list[Event]] = {}
+    for event in events:
+        if event.restart is None or not event.pod:
+            continue
+        if event.source not in {"kubernetes", PREVIOUS_SOURCE}:
+            continue
+        if event.reason is not None:
+            continue
+        key = (event.namespace, event.pod, event.container)
+        groups.setdefault(key, []).append(event)
+    for group in groups.values():
+        counts = {event.restart for event in group}
+        if len(counts) < 2:
+            continue
+        current = max(count for count in counts if count is not None)
+        for event in group:
+            if event.restart is not None and event.restart < current:
+                event.source = PREVIOUS_SOURCE
 
 
 def _records(data: bytes) -> list[tuple[int, int, str]]:

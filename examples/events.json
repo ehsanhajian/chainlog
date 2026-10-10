@@ -11,7 +11,8 @@
       "involvedObject": {
         "kind": "Pod",
         "namespace": "ethereum",
-        "name": "geth-0"
+        "name": "geth-0",
+        "fieldPath": "spec.containers{geth}"
       }
     },
     {
@@ -23,19 +24,82 @@
       "involvedObject": {
         "kind": "Pod",
         "namespace": "ethereum",
-        "name": "geth-0"
+        "name": "geth-0",
+        "fieldPath": "spec.containers{geth}"
       }
     },
     {
       "kind": "Event",
-      "reason": "Failed",
+      "reason": "FailedMount",
       "message": "mount failed password=hunter2",
       "type": "Warning",
       "lastTimestamp": "2026-10-08T06:13:48Z",
       "involvedObject": {
         "kind": "Pod",
         "namespace": "ethereum",
+        "name": "geth-0",
+        "fieldPath": "spec.containers{geth}"
+      }
+    },
+    {
+      "kind": "Event",
+      "reason": "OOMKilled",
+      "message": "Container geth exceeded its memory limit",
+      "type": "Warning",
+      "lastTimestamp": "2026-10-08T06:13:54Z",
+      "involvedObject": {
+        "kind": "Pod",
+        "namespace": "ethereum",
+        "name": "geth-0",
+        "fieldPath": "spec.containers{geth}"
+      }
+    },
+    {
+      "kind": "Event",
+      "reason": "BackOff",
+      "message": "Back-off restarting failed container geth",
+      "type": "Warning",
+      "lastTimestamp": "2026-10-08T06:14:05Z",
+      "involvedObject": {
+        "kind": "Pod",
+        "namespace": "ethereum",
+        "name": "geth-0",
+        "fieldPath": "spec.containers{geth}"
+      }
+    },
+    {
+      "kind": "Event",
+      "reason": "Evicted",
+      "message": "The node was low on resource: memory.",
+      "type": "Warning",
+      "lastTimestamp": "2026-10-08T06:13:56Z",
+      "involvedObject": {
+        "kind": "Pod",
+        "namespace": "ethereum",
         "name": "geth-0"
+      }
+    },
+    {
+      "kind": "Event",
+      "reason": "FailedScheduling",
+      "message": "0/3 nodes are available: 3 Insufficient cpu.",
+      "type": "Warning",
+      "lastTimestamp": "2026-10-08T06:10:00Z",
+      "involvedObject": {
+        "kind": "Pod",
+        "namespace": "ethereum",
+        "name": "geth-0"
+      }
+    },
+    {
+      "kind": "Event",
+      "reason": "NodeHasDiskPressure",
+      "message": "Node ethereum-1 status is now: NodeHasDiskPressure",
+      "type": "Warning",
+      "lastTimestamp": "2026-10-08T06:13:40Z",
+      "involvedObject": {
+        "kind": "Node",
+        "name": "ethereum-1"
       }
     }
   ]

@@ -280,7 +280,7 @@ def test_example_logs_open_a_case(home: Path) -> None:
         "consensus": 7,
         "validator": 6,
         "builder": 7,
-        "kubernetes": 3,
+        "kubernetes": 8,
     }
     excerpts = [event.excerpt for event in case.events]
     blob = "\n".join(excerpts)
@@ -295,7 +295,7 @@ def test_example_logs_open_a_case(home: Path) -> None:
     assert any("0xefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef" in excerpt for excerpt in excerpts)
     assert any("12D3KooWAbcdefghijkmnopqrstuvwxyz123456789" in excerpt for excerpt in excerpts)
     assert any("0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd" in excerpt for excerpt in excerpts)
-    assert any(excerpt == "Failed: mount failed password=[redacted]" for excerpt in excerpts)
+    assert any(excerpt == "FailedMount: mount failed password=[redacted]" for excerpt in excerpts)
     execution = [event for event in case.events if event.source == "execution"]
     assert {event.client for event in execution} == {"geth"}
     assert all(event.time is not None and event.time.endswith("Z") for event in execution)
@@ -315,8 +315,24 @@ def test_example_logs_open_a_case(home: Path) -> None:
     assert all(event.time is not None and event.time.endswith("Z") for event in builder)
     assert any("relay" in event.excerpt for event in builder)
     assert any("builder timeout" in event.excerpt for event in builder)
-    others = [event for event in case.events if event.source not in {"execution", "consensus", "validator", "builder"}]
-    assert all(event.client is None and event.time is None for event in others)
+    kube = [event for event in case.events if event.source == "kubernetes"]
+    assert {event.reason for event in kube} == {
+        "Unhealthy",
+        "Killing",
+        "FailedMount",
+        "OOMKilled",
+        "BackOff",
+        "Evicted",
+        "FailedScheduling",
+        "NodeHasDiskPressure",
+    }
+    assert any(
+        event.pod == "geth-0" and event.namespace == "ethereum" and event.container == "geth"
+        for event in kube
+    )
+    pressure = next(event for event in kube if event.reason == "NodeHasDiskPressure")
+    assert pressure.pod is None
+    assert all(event.client is None and event.time is not None and event.time.endswith("Z") for event in kube)
 
 
 def test_json_log_line_stays_one_excerpt(home: Path, tmp_path: Path) -> None:

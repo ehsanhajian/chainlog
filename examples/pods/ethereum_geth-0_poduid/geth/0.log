@@ -1,0 +1,2 @@
+2026-10-08T06:12:00.001000000Z stdout F INFO [10-08|06:12:00.001] Starting Geth on Ethereum mainnet
+2026-10-08T06:13:40.100000000Z stderr F ERROR [10-08|06:13:40.100] Database closed leveldb: closed
