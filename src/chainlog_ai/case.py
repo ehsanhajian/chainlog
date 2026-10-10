@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -41,9 +41,10 @@ class Event:
     namespace: str | None = None
     reason: str | None = None
     restart: int | None = None
+    generation: int = 0
 
-    def identity(self) -> tuple[str, str, int, int]:
-        return (self.source, self.path, self.byte_start, self.byte_end)
+    def identity(self) -> tuple[str, str, int, int, int]:
+        return (self.source, self.path, self.byte_start, self.byte_end, self.generation)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -61,6 +62,7 @@ class Event:
             "namespace": self.namespace,
             "reason": self.reason,
             "restart": self.restart,
+            "generation": self.generation,
             "excerpt": self.excerpt,
         }
 
@@ -81,6 +83,7 @@ class Event:
         namespace = data.get("namespace")
         reason = data.get("reason")
         restart = data.get("restart")
+        generation = data.get("generation", 0)
         if not isinstance(source, str) or not isinstance(path, str) or not isinstance(excerpt, str):
             raise TypeError("event fields must be strings")
         if client is not None and not isinstance(client, str):
@@ -107,6 +110,10 @@ class Event:
                 raise TypeError(f"{label} must be a string or null")
         if isinstance(restart, bool) or (restart is not None and not isinstance(restart, int)):
             raise TypeError("restart must be an integer or null")
+        if generation is None:
+            generation = 0
+        if isinstance(generation, bool) or not isinstance(generation, int):
+            raise TypeError("generation must be an integer")
         return cls(
             source=source,
             client=client,
@@ -123,6 +130,76 @@ class Event:
             namespace=namespace,
             reason=reason,
             restart=restart,
+            generation=generation,
+        )
+
+
+@dataclass
+class Rotation:
+    """A file was replaced, so a later read starts at the beginning."""
+
+    time: str
+    inode: int
+
+    def to_dict(self) -> dict[str, object]:
+        return {"time": self.time, "inode": self.inode}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> Rotation:
+        stamp = data["time"]
+        inode = data["inode"]
+        if not isinstance(stamp, str):
+            raise TypeError("rotation time must be a string")
+        if isinstance(inode, bool) or not isinstance(inode, int):
+            raise TypeError("rotation inode must be an integer")
+        return cls(time=stamp, inode=inode)
+
+
+@dataclass
+class FileCursor:
+    """How far ingest has read one local file."""
+
+    offset: int
+    inode: int
+    device: int
+    generation: int = 0
+    rotations: list[Rotation] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "offset": self.offset,
+            "inode": self.inode,
+            "device": self.device,
+            "generation": self.generation,
+            "rotations": [item.to_dict() for item in self.rotations],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> FileCursor:
+        offset = data["offset"]
+        inode = data["inode"]
+        device = data["device"]
+        generation = data.get("generation", 0)
+        raw_rotations = data.get("rotations", [])
+        if isinstance(offset, bool) or not isinstance(offset, int):
+            raise TypeError("offset must be an integer")
+        if isinstance(inode, bool) or not isinstance(inode, int):
+            raise TypeError("inode must be an integer")
+        if isinstance(device, bool) or not isinstance(device, int):
+            raise TypeError("device must be an integer")
+        if isinstance(generation, bool) or not isinstance(generation, int):
+            raise TypeError("generation must be an integer")
+        if not isinstance(raw_rotations, list):
+            raise TypeError("rotations must be a list")
+        rotations = [Rotation.from_dict(item) for item in raw_rotations if isinstance(item, dict)]
+        if len(rotations) != len(raw_rotations):
+            raise TypeError("every rotation must be an object")
+        return cls(
+            offset=offset,
+            inode=inode,
+            device=device,
+            generation=generation,
+            rotations=rotations,
         )
 
 
@@ -130,9 +207,14 @@ class Event:
 class Case:
     id: str
     events: list[Event]
+    files: dict[str, FileCursor] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
-        return {"id": self.id, "events": [event.to_dict() for event in self.events]}
+        return {
+            "id": self.id,
+            "events": [event.to_dict() for event in self.events],
+            "files": {path: cursor.to_dict() for path, cursor in self.files.items()},
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> Case:
@@ -142,7 +224,15 @@ class Case:
         events = [Event.from_dict(item) for item in raw_events if isinstance(item, dict)]
         if len(events) != len(raw_events):
             raise TypeError("every event must be an object")
-        return cls(id=str(data["id"]), events=events)
+        raw_files = data.get("files", {})
+        if not isinstance(raw_files, dict):
+            raise TypeError("files must be an object")
+        files: dict[str, FileCursor] = {}
+        for path, item in raw_files.items():
+            if not isinstance(path, str) or not isinstance(item, dict):
+                raise TypeError("files must be an object")
+            files[path] = FileCursor.from_dict(item)
+        return cls(id=str(data["id"]), events=events, files=files)
 
 
 def case_home() -> Path:

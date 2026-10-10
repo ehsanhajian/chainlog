@@ -113,6 +113,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--case",
         help="Append to this case. The case is created when it does not exist.",
     )
+    ingest_parser.add_argument(
+        "--follow",
+        action="store_true",
+        help="Read new lines from the local files until this command is stopped",
+    )
     _add_source(ingest_parser, "--execution", "execution", "Execution-client log")
     ingest_parser.add_argument(
         "--execution-client",
@@ -215,12 +220,21 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     if not inputs:
         print("ingest needs an input file", file=sys.stderr)
         return 3
+    announced = False
+
+    def on_ready(case_id: str) -> None:
+        nonlocal announced
+        if args.follow:
+            print(f"case {case_id}", flush=True)
+            announced = True
+
     try:
-        case_id = ingest(inputs, case_id=args.case)
+        case_id = ingest(inputs, case_id=args.case, follow=args.follow, on_ready=on_ready)
     except (InputError, CaseError) as exc:
         print(exc, file=sys.stderr)
         return 3
-    print(f"case {case_id}")
+    if not announced:
+        print(f"case {case_id}")
     return 0
 
 
